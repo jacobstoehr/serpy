@@ -56,6 +56,36 @@ class SerializerMeta(type):
 
         real_cls = super(SerializerMeta, cls).__new__(cls, name, bases, attrs)
 
+        # Handle `Class Meta:` declarations inside custom serializer class.
+        # Mimics DRF's ModelSerializer class.
+        meta = getattr(real_cls, 'Meta', None)
+        if meta:
+            model = getattr(meta, 'model', None)
+            if not model:
+                raise RuntimeError(
+                    'If you specifiy a Meta class, you need to atleast specify a model'
+                )
+            if getattr(model, "_meta"):
+                # Django models
+                direct_fields.update(
+                    {
+                        field.name: Field()
+                        for field in model._meta.fields
+                    }
+                )
+            elif getattr(model, "__table__"):
+                # SQLAlchemy model
+                direct_fields.update(
+                    {
+                        field.name: Field()
+                        for field in model.__table__.columns
+                    }
+                )
+            else:
+                raise RuntimeError(
+                    'Cannot deduce your fields from your model declaration'
+                )
+
         field_map = cls._get_fields(direct_fields, real_cls)
         compiled_fields = cls._compile_fields(field_map, real_cls)
 
