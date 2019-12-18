@@ -71,6 +71,7 @@ class SerializerMeta(type):
                     {
                         field.name: Field()
                         for field in model._meta.fields
+                        if field.name not in meta.exclude
                     }
                 )
             elif getattr(model, "__table__"):
@@ -79,6 +80,7 @@ class SerializerMeta(type):
                     {
                         field.name: Field()
                         for field in model.__table__.columns
+                        if field.name not in meta.exclude
                     }
                 )
             else:
