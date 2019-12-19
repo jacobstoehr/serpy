@@ -65,7 +65,7 @@ class SerializerMeta(type):
                 raise RuntimeError(
                     'If you specifiy a Meta class, you need to atleast specify a model'
                 )
-            if getattr(model, "_meta"):
+            if getattr(model, "_meta", None):
                 # Django models
                 direct_fields.update(
                     {
@@ -74,7 +74,7 @@ class SerializerMeta(type):
                         if field.name not in meta.exclude
                     }
                 )
-            elif getattr(model, "__table__"):
+            elif getattr(model, "__table__", None):
                 # SQLAlchemy model
                 direct_fields.update(
                     {
