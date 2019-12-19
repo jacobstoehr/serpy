@@ -86,11 +86,11 @@ class SerializerMeta(type):
             exclude = getattr(meta, 'exclude', None)
             if not model:
                 raise RuntimeError(
-                    'If you specifiy a Meta class, you need to atleast specify a model'
+                    'If you specifiy a Meta class, you need to specify a model'
                 )
             if not fields and not exclude:
                 raise RuntimeError(
-                    'You need to specifiy either `fields` or `exclude` in your Meta class.'
+                    'You need to specifiy either `fields` or `exclude` in Meta'
                 )
             if fields and exclude:
                 raise RuntimeError(
