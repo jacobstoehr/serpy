@@ -44,7 +44,7 @@ class SerializerMeta(type):
         ]
 
     @staticmethod
-    def _get_list_of_fields(model_fields, fields, exclude):
+    def _get_implicit_fields(model_fields, fields, exclude):
         if fields == '__all__':
             fields = model_fields
         elif not fields and exclude:
@@ -52,7 +52,17 @@ class SerializerMeta(type):
                 field for field in model_fields
                 if field.name not in exclude
             ]
+        # this implicitly handles the case when `fields` is set and `exclude`
+        # isn't. Then all fields declared will be returned without any
+        # modification.
         return fields
+
+    @staticmethod
+    def _update_direct_fields(direct_fields, explicit_fields, implicit_fields):
+        for field in implicit_fields:
+            if field.name not in explicit_fields:
+                direct_fields[field.name] = Field()
+        return direct_fields
 
     def __new__(cls, name, bases, attrs):
         # Fields declared directly on the class.
@@ -88,12 +98,19 @@ class SerializerMeta(type):
                 )
             # Django models
             if getattr(model, '_meta', None) is not None:
-                fields = cls._get_list_of_fields(model._meta.fields, fields, exclude)
-                direct_fields.update(
-                    {
-                        field.name: Field()
-                        for field in fields
-                    }
+                # Define `implicit_fields` as fields that have not been
+                # explicitly declared in the custom serializer class. They are
+                # deduced from the model declaration.
+                implicit_fields = cls._get_implicit_fields(
+                    model._meta.fields, fields, exclude
+                )
+                # Define `explicit_fields` as fields that have been explicitly
+                # declared in custom serializer class. Dont update them with a
+                # simple `Field` instance. Instead, keep the Fieldtype that has
+                # been declared in the custom Serializer
+                explicit_fields = direct_fields.keys()
+                direct_fields = cls._update_direct_fields(
+                    direct_fields, explicit_fields, implicit_fields
                 )
             # SQLAlchemy model
             # This has to be like this because SQLAlchemy has not implemented
@@ -102,12 +119,12 @@ class SerializerMeta(type):
             # the getattr returned `None`, if yes, that would be an instance of
             # `None`, so we can say that this is not an SQLAlchemy model.
             elif not isinstance(getattr(model, '__table__', None), type(None)):
-                fields = cls._get_list_of_fields(model.__table__.columns, fields, exclude)
-                direct_fields.update(
-                    {
-                        field.name: Field()
-                        for field in fields
-                    }
+                implicit_fields = cls._get_implicit_fields(
+                    model.__table__.columns, fields, exclude
+                )
+                explicit_fields = direct_fields.keys()
+                direct_fields = cls._update_direct_fields(
+                    direct_fields, explicit_fields, implicit_fields
                 )
             else:
                 raise RuntimeError(
