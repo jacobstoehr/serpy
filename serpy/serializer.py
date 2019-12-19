@@ -43,6 +43,16 @@ class SerializerMeta(type):
             for name, field in field_map.items()
         ]
 
+    @staticmethod
+    def _get_list_of_fields(model_fields, fields, exclude):
+        if fields == '__all__':
+            fields = model_fields
+        elif not fields and exclude:
+            fields = [
+                field for field in model_fields
+                if field.name not in exclude
+            ]
+        return fields
     def __new__(cls, name, bases, attrs):
         # Fields declared directly on the class.
         direct_fields = {}
@@ -77,13 +87,7 @@ class SerializerMeta(type):
                 )
             if getattr(model, "_meta", None):
                 # Django models
-                if fields == '__all__':
-                    fields = model._meta.fields
-                elif not fields and exclude:
-                    fields = [
-                        field for field in model._meta.fields
-                        if field.name not in meta.exclude
-                    ]
+                fields = cls._get_list_of_fields(model._meta.fields, fields, exclude)
                 direct_fields.update(
                     {
                         field.name: Field()
@@ -92,13 +96,7 @@ class SerializerMeta(type):
                 )
             elif getattr(model, "__table__", None):
                 # SQLAlchemy model
-                if fields == '__all__':
-                    fields = model._meta.fields
-                elif not fields and exclude:
-                    fields = [
-                        field for field in model.__table__.columns
-                        if field.name not in meta.exclude
-                    ]
+                fields = cls._get_list_of_fields(model.__table__.columns, fields, exclude)
                 direct_fields.update(
                     {
                         field.name: Field()
