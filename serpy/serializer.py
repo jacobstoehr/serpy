@@ -61,26 +61,48 @@ class SerializerMeta(type):
         meta = getattr(real_cls, 'Meta', None)
         if meta:
             model = getattr(meta, 'model', None)
+            fields = getattr(meta, 'fields', None)
+            exclude = getattr(meta, 'exclude', None)
             if not model:
                 raise RuntimeError(
                     'If you specifiy a Meta class, you need to atleast specify a model'
                 )
+            if not fields and not exclude:
+                raise RuntimeError(
+                    'You need to specifiy either `fields` or `exclude` in your Meta class.'
+                )
+            if fields and exclude:
+                raise RuntimeError(
+                    '`fields` and `exclude` prohibit each other.'
+                )
             if getattr(model, "_meta", None):
                 # Django models
+                if fields == '__all__':
+                    fields = model._meta.fields
+                elif not fields and exclude:
+                    fields = [
+                        field for field in model._meta.fields
+                        if field.name not in meta.exclude
+                    ]
                 direct_fields.update(
                     {
                         field.name: Field()
-                        for field in model._meta.fields
-                        if field.name not in meta.exclude
+                        for field in fields
                     }
                 )
             elif getattr(model, "__table__", None):
                 # SQLAlchemy model
+                if fields == '__all__':
+                    fields = model._meta.fields
+                elif not fields and exclude:
+                    fields = [
+                        field for field in model.__table__.columns
+                        if field.name not in meta.exclude
+                    ]
                 direct_fields.update(
                     {
                         field.name: Field()
-                        for field in model.__table__.columns
-                        if field.name not in meta.exclude
+                        for field in fields
                     }
                 )
             else:
