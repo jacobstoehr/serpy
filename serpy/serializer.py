@@ -53,6 +53,7 @@ class SerializerMeta(type):
                 if field.name not in exclude
             ]
         return fields
+
     def __new__(cls, name, bases, attrs):
         # Fields declared directly on the class.
         direct_fields = {}
@@ -85,8 +86,8 @@ class SerializerMeta(type):
                 raise RuntimeError(
                     '`fields` and `exclude` prohibit each other.'
                 )
-            if getattr(model, "_meta", None):
-                # Django models
+            # Django models
+            if getattr(model, '_meta', None) is not None:
                 fields = cls._get_list_of_fields(model._meta.fields, fields, exclude)
                 direct_fields.update(
                     {
@@ -94,8 +95,13 @@ class SerializerMeta(type):
                         for field in fields
                     }
                 )
-            elif getattr(model, "__table__", None):
-                # SQLAlchemy model
+            # SQLAlchemy model
+            # This has to be like this because SQLAlchemy has not implemented
+            # __bool__, so we cannot compare it with a simple
+            # `getattr(mode, '__table'__, None) is not None`. Instead, check if
+            # the getattr returned `None`, if yes, that would be an instance of
+            # `None`, so we can say that this is not an SQLAlchemy model.
+            elif not isinstance(getattr(model, '__table__', None), type(None)):
                 fields = cls._get_list_of_fields(model.__table__.columns, fields, exclude)
                 direct_fields.update(
                     {
